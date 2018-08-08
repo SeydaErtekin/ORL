@@ -1,0 +1,26 @@
+# Helper script that writes a new discovered rule to the output file,
+# and adds the rule to the list of constraints so we don't discover
+# the same rule again.
+#
+# Important: The output file names should be consistent with the ones
+# specified in GenerateRules.sa script.
+
+# 1. Write the rule to the file
+for {j in 1..N} {
+  printf "%g ", round(alpha[j]) >> ./rules/haberman_binary_train12_rules_one.txt;
+}  # end for
+
+printf "\n" >> ./rules/haberman_binary_train12_rules_one.txt;
+
+# 2. Add new rule: Make this rule infeasible so we don't discover it again.
+let num_infeasible_rules := num_infeasible_rules + 1;
+let C[num_infeasible_rules] := 0;
+
+for {i in 1..N}{
+  if round(alpha[i]) = 1 then {
+    let ir[num_infeasible_rules,i] := -1;
+    let C[num_infeasible_rules] := C[num_infeasible_rules] + 1;
+  } else {
+    let ir[num_infeasible_rules,i] := 1;
+  }
+} # end for

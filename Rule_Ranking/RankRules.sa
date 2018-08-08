@@ -1,0 +1,22 @@
+# Ampl script that runs the rule ranking algorithm with the specified params.
+# The data needs to point to the training input for the dataset; C and C1
+# regularization parameters are defaulted to 1/(# rules), but can be adjusted. 
+# The output filenames have suffixes that reflect the regularization settings.
+# Namely rank_output_1divR_C1_1divR_ indicates that both C and C1 were set
+# to 1/R in this experiment.
+
+model RankObj.mod;
+data ./rules/tictactoe_binary_train12_rank_input.dat;
+option solver gurobi_ampl;
+option gurobi_options 'timing=1 outlev=1 logfreq=60 mipfocus=1 timelim=1200 logfile=./rules/tictactoe_binary_train12_rank_output_1divR_C1_1divR_.log';
+
+let C := 1/R;
+let C1 := 1/R;
+
+solve;
+
+printf "" > ./rules/tictactoe_binary_train12_rank_output_1divR_C1_1divR_.dat;
+
+for {r in 1..R}{
+  printf "%g\n", pi[r] >> ./rules/tictactoe_binary_train12_rank_output_1divR_C1_1divR_.dat;
+}

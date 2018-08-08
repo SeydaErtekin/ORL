@@ -1,0 +1,80 @@
+# Implementation of rule generation routines. 
+
+# This code needs to be run two times: one run to generate rules
+# for the positive class (ones) and another one for the negative
+# class (zeros). When running for the positive class, the variable
+# S needs to be set to Sone, and when running for the negative
+# class, it needs to be set to Szero. The parameters and variables
+# (like RuleSuppRatio, Acurrent, SparsityThreshold,etc.) can be
+# adjusted if necessary.
+
+option solver gurobi_ampl;
+option gurobi_options 'timing=1';
+
+param num_total_rules;
+
+param RuleSup;
+param RuleSuppRatio := 0.95;
+
+model RuleGen.mod
+data ../Datasets/processed/haberman_binary_train12.dat
+
+# flush output file.
+printf "" > ./rules/haberman_binary_train12_rules_one.txt;
+
+let S := Sone;
+let Acurrent := ceil(card(S) / 10);
+let SparsityThreshold := 3;
+let RuleSupThreshold := 0;
+
+let num_total_rules := 0;
+let num_infeasible_rules := 0;
+
+repeat { # until convergence
+
+  #  expand ExtraConstraints;
+
+  # 1. Generate a new rule.
+  for {j in 1..N} let alpha[j] := 0; 
+  solve;
+
+  # 2. Compute Rule Support.
+  let RuleSup := round(sum {i in S} a[i]);
+
+  if sum {i in 1..N} alpha[i] > 0 
+     and RuleSup >= RuleSupThreshold then {
+
+    # 3. Add this rule.
+    commands AddRule.sa;
+
+    let num_total_rules := num_total_rules+1;
+    # 4. Set threshold for new rules. It can't go lower than the previous minimum.
+    let RuleSupThreshold := max(RuleSupThreshold, round(RuleSup*RuleSuppRatio));
+
+    printf "\nOuter.Added Rule %g. RuleSup=%g RuleSupThreshold=%g Acurrent=%g Infeasable=%g\n",num_total_rules,RuleSup,RuleSupThreshold,Acurrent,num_infeasible_rules;
+
+    repeat { # until all rules found at antecedent support
+
+      for {j in 1..N} let alpha[j] := 0;
+      solve;
+      if sum {i in 1..N} alpha[i] = 0 then {
+        break;
+      } 
+      
+      # 5. Compute new rule's support
+      let RuleSup := round(sum {i in S} a[i]);
+
+      if RuleSup < RuleSupThreshold then break;
+
+      # 6. Add this rule.
+      commands AddRule.sa;
+      
+      let num_total_rules := num_total_rules+1;
+      printf "\nInner.Added Rule %g. RuleSup=%g RuleSupThreshold=%g Acurrent=%g Infeasible=%g\n",num_total_rules,RuleSup,RuleSupThreshold,Acurrent,num_infeasible_rules;
+      
+    } while RuleSup >= RuleSupThreshold; 
+  } # if
+
+  # 7. Move on to the next antecedent support point.
+  let Acurrent := Acurrent + 1;
+} while Acurrent <= m;
